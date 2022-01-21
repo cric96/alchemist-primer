@@ -7,7 +7,7 @@ This project is a quick start for the [Alchemist](https://github.com/AlchemistSi
 
 ## Prerequisites
 
-Alchemist's prerequisites can be found [here](https://alchemistsimulator.github.io/wiki/usage/installation/).
+A [Gradle-compatible Java version](https://docs.gradle.org/current/userguide/compatibility.html).
 
 ## How to launch
 
@@ -30,72 +30,69 @@ gradlew.bat runAll
 ```
 
 Press <kb>P</kb> to start the simulation.
-For further information about the gui, see the [graphical interface shortcuts](https://alchemistsimulator.github.io/wiki/usage/gui/).
+For further information about the gui, see the [Alchemist documentation](https://alchemistsimulator.github.io/).
 
-Note that the first launch will be rather slow, since Gradle will download all the required files.
+Note that the first launch will take some time, since Gradle will download all the required files.
 They will get cached in the user's home folder (as per Gradle normal behavior).
 
 ## The build script
 
-Let's explain how things work by looking at the `build.gradle.kts` script. First of all, we need to add Alchemist as a dependency, thus you will see something like this:
+Let's explain how things work by looking at the `build.gradle.kts` script and the `gradle/libs.versions.toml` file.
+The latter is a [Gradle dependency catalog file](https://docs.gradle.org/current/userguide/platforms.html#sub:conventional-dependencies-toml)
+including the specification of the required libraries,
+including their name, their version, and how they get bundled;
+while the former is the actual script that launches the simulator.
+
+The build script imports the bundled alchemist dependencies as:
 ```kotlin
 dependencies {
-    implementation("it.unibo.alchemist:alchemist:SOME_ALCHEMIST_VERSION")
+    implementation(libs.bundles.alchemist)
 }
 ```
-With `SOME_ALCHEMIST_VERSION` replaced by the version used, nothing special actually. 
 
-You will either need to import the full version of alchemist (but it's not recommended, as it pulls in a lot of dependencies you probably don't want), or manually declare which modules you want to run Alchemist.
+You will either need to import the full version of alchemist (but it's not recommended, as it pulls in a lot of dependencies you probably don't want),
+or manually declare which modules you want to include into your Alchemist simulations.
+
 At the very least, you want to pull in an incarnation.
+This can be done directly in the build file, or (recommended way) through the TOML catalog.
 
-```kotlin
-dependencies {
-    // Alchemist full, with a lot of goodies you do not need
-    implementation("it.unibo.alchemist:alchemist-full:SOME_ALCHEMIST_VERSION")
-}
+For instance,
+let's say that you want to pull in the module for simulating on real-world maps,
+and that you also need a library named `bar` at version `1.2.3`, from group `io.github.foo`, available on [Maven Central](https://search.maven.org/).
+You could import both of them by changing the catalog as follows:
+
+```toml
+[versions]
+alchemist = "<the version of alchemist is here>"
+
+[libraries]
+alchemist = { module = "it.unibo.alchemist:alchemist", version.ref = "alchemist" }
+alchemist-incarnation-protelis = { module = "it.unibo.alchemist:alchemist-incarnation-protelis", version.ref = "alchemist" }
+alchemist-swingui = { module = "it.unibo.alchemist:alchemist-swingui", version.ref = "alchemist" }
+# The following two lines are additions, the first defines the maps module of alchemist...
+alchemist-maps = { module = "it.unibo.alchemist:alchemist-maps", version.ref = "alchemist" }
+# ...the second the custom library with a more compact syntax as there is no need to reuse the version defined above.
+foobar = "io.github.foo:bar:1.2.3"
+
+[bundles]
+alchemist = [
+    "alchemist",
+    "alchemist-incarnation-protelis",
+    "alchemist-swingui",
+    # Adding the newly defined libraries to the alchemist bundle makes them available automatically
+    "alchemist-maps",
+    "foobar"
+]
+
 ```
 
-```kotlin
-dependencies {
-    // Example import of Protelis and the module for importing traces and simulating on real world maps
-    implementation("it.unibo.alchemist:alchemist:SOME_ALCHEMIST_VERSION")
-    implementation("it.unibo.alchemist:alchemist-incarnation-protelis:SOME_ALCHEMIST_VERSION")
-    implementation("it.unibo.alchemist:alchemist-maps:SOME_ALCHEMIST_VERSION")
-}
-```
-
-The remainder of the script defines a number of tasks for this project, meant to let you run Alchemist easily from the command line through Gradle.
+The build script defines some tasks meant to run Alchemist from the command line through Gradle with ease.
 There will be one task for each simulation file in `src/main/yaml`, dynamically detected and prepared by Gradle.
 You can see a summary of the tasks for running Alchemist by issuing
 `./gradlew tasks --all`
 (or `gradlew.bat tasks --all` under Windows)
 and looking for the `Run Alchemist` task group.
 
-Internally, the task relies on the Alchemist [command line interface](#command-line-interface), to run a simulation we can use the `-y` option followed by the path to the simulation file. Alchemist simulations are contained in *.yml files, more information about how to write such simulations can be found [here](https://alchemistsimulator.github.io/wiki/usage/yaml/).
-
-Ok, that's it. You should be able to use Alchemist via Gradle in your own project now, or at least have a clue.
-
-## Command line interface
-
-The CLI supports the following options
-
-| Option                                     | Effect                                                                                                                                                                            |
-|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| -b,--batch                                 | Runs in batch mode. If one or more -var parameters are specified, multiple simulation runs will be executed in parallel with all the combinations of values.                      |
-| -cc,--comment-char                         | Sets the char that will be used to mark a data file line as commented. Defaults to #. (To be implemented)                                                                         |
-| -d,--distributed \<file>                    | Distribute simulations in computer grid                                                                                                                                           |
-| -e,--export \<file>                         | Exports the results onto a file                                                                                                                                                   |
-| -g,--effect-stack \<file>                   | Loads an effect stack from file. Does nothing if in headless mode (because --batch and/or --headless are enabled)                                                                 |
-| -h,--help                                  | Print this help and quits the program                                                                                                                                             |
-| -hl,--headless                             | Disable the graphical interface (automatic in batch mode)                                                                                                                         |
-| -i,--interval \<interval>                   | Used when exporting data. Specifies how much simulated time units should pass between two samplings. Defaults to 1.                                                               |
-| -p,--parallelism \<arg>                     | Sets how many threads will be used in batch mode (default to the number of cores of your CPU).                                                                                    |
-| -q,--quiet                                 | Quiet mode: print only error-level informations.                                                                                                                                  |
-| -qq,--quiet-quiet                          | Super quiet mode: the simulator does not log anything. Go cry somewhere else if something goes wrong and you have no clue what.                                                   |
-| -s,--serv \<Ignite note configuration file> | Start Ignite cluster node on local machine                                                                                                                                        |
-| -t,--end-time \<Time>                       | The simulation will be concluded at the specified time. Defaults to infinity.                                                                                                     |
-| -v,--verbose                               | Verbose mode: prints info-level informations. Slows the simulator down.                                                                                                           |
-| -var,--variable \<var1 var2 ... varN>       | Used with -b. If the specified variable exists in the Alchemist YAML file, it is added to the pool of  variables. Be wary: complexity quickly grows with the number of variables. |
-| -vv,--vverbose                             | Very verbose mode: prints debug-level informations. Slows the simulator down. A lot.                                                                                              |
-| -vvv,--vvverbose                           | Very very verbose mode: prints trace-level informations. Slows the simulator down. An awful lot.                                                                                  |
-| -y,--yaml \<file>                           | Load the specified Alchemist YAML file                                                                                                                                            |
+Internally, the task relies on the Alchemist command-line interface.
+Alchemist simulations are [YAML](https://yaml.org/spec/) files,
+more information about them can be found [here](https://alchemistsimulator.github.io/).
