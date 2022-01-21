@@ -4,6 +4,8 @@
 
 plugins {
     application
+    alias(libs.plugins.multiJvmTesting) // Pre-configures the Java toolchains
+    alias(libs.plugins.taskTree) // Helps debugging dependencies among gradle tasks
 }
 
 repositories {
@@ -20,10 +22,12 @@ sourceSets {
     }
 }
 dependencies {
-    // The version of Alchemist can be controlled by changing the version.properties file
-    implementation("it.unibo.alchemist:alchemist:_")
-    implementation("it.unibo.alchemist:alchemist-incarnation-protelis:_")
-    implementation("it.unibo.alchemist:alchemist-swingui:_")
+    // Check the catalog at gradle/libs.versions.gradle
+    implementation(libs.bundles.alchemist)
+}
+
+multiJvm {
+    jvmVersionForCompilation.set(latestJava)
 }
 
 val batch: String by project
@@ -59,6 +63,12 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
                     exportsDir.mkdirs()
                 }
             }
+            // Uses the latest version of java
+            javaLauncher.set(
+                javaToolchains.launcherFor {
+                    languageVersion.set(JavaLanguageVersion.of(multiJvm.latestJava))
+                }
+            )
             // These are the program arguments
             args("-y", it.absolutePath, "-e", "$exportsDir/${it.nameWithoutExtension}-${System.currentTimeMillis()}")
             if (System.getenv("CI") == "true" || batch == "true") {
